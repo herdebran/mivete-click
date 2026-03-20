@@ -100,11 +100,15 @@ if ($vetId) {
             <h1 class="text-2xl font-bold text-gray-800 mb-2">Completa tus datos</h1>
             <p class="text-gray-600 mb-8">Necesitamos esta información para crear tu turno</p>
             
-            <form action="pago_simulado.php" method="POST" enctype="multipart/form-data">
+            <form action="pago.php" method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="vet_id" value="<?php echo $vetId ?? ''; ?>">
                 <input type="hidden" name="fecha" value="<?php echo $fecha; ?>">
                 <input type="hidden" name="tipo_busqueda" value="<?php echo $tipo; ?>">
-                
+    
+				<!-- Opcional: botón para test rápido sin MP -->
+				<input type="hidden" name="modo_simulado" value="0">
+				<!-- Cambiar a 1 si querés saltar MP para testing rápido -->
+                    
                 <div class="space-y-5">
                     <!-- Nombre -->
                     <div>
