@@ -1,28 +1,31 @@
 <?php
-// ✅ AGREGAR ESTO PARA DEBUG (borrar después)
+session_start();
+
+// Configurar error reporting (borrar después de testing)
 ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-session_start();
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/mercadopago.php';
 require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../src/Controllers/AppointmentController.php';
 
-// ✅ Imports CORRECTOS para SDK 3.8.0
-use MercadoPago\SDK;
-use MercadoPago\Preference;
-use MercadoPago\Item;
+// ✅ IMPORTS CORRECTOS PARA SDK 3.8.0
+use MercadoPago\MercadoPagoConfig;
+use MercadoPago\Client\Preference\PreferenceClient;
+use MercadoPago\Client\MerchantOrder\MerchantOrderClient;
 
 $mpConfig = require __DIR__ . '/../config/mercadopago.php';
 
-// ✅ Configurar SDK según modo
-if ($mpConfig['modo_prueba']) {
-    SDK::setAccessToken($mpConfig['sandbox']['access_token']);
-} else {
-    SDK::setAccessToken($mpConfig['production']['access_token']);
-}
+// ✅ Configurar access token (NUEVA FORMA SDK 3.x)
+$accessToken = $mpConfig['modo_prueba'] 
+    ? $mpConfig['sandbox']['access_token'] 
+    : $mpConfig['production']['access_token'];
+
+MercadoPagoConfig::setAccessToken($accessToken);
+
+// Opcional: Configurar timeout
+MercadoPagoConfig::setTimeout(30000); // 30 segundos
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header("Location: index.php");
@@ -86,52 +89,51 @@ try {
         }
     }
 
-    // ✅ MODO SIMULADO (solo para testing rápido sin MP)
-    if (isset($_POST['modo_simulado']) && $_POST['modo_simulado'] === '1' && $mpConfig['modo_prueba']) {
-        $_SESSION['appointment_id'] = $appointmentId;
-        $_SESSION['tipo_turno'] = $tipoBusqueda;
-        header("Location: pago_simulado_paso_final.php");
-        exit;
+    // ✅ CREAR PREFERENCIA CON SDK 3.8.0 (NUEVA API)
+    $client = new PreferenceClient();
+    
+    $preference_data = [
+        "items" => [
+            [
+                "title" => "Consulta Veterinaria Online",
+                "quantity" => 1,
+                "unit_price" => (float)$mpConfig['precio_consulta'],
+                "currency_id" => $mpConfig['moneda']
+            ]
+        ],
+        "payer" => [
+            "name" => $_POST['cliente_nombre'],
+            "email" => $_POST['cliente_email']
+        ],
+        "back_urls" => [
+            "success" => $mpConfig['urls']['success'],
+            "failure" => $mpConfig['urls']['failure'],
+            "pending" => $mpConfig['urls']['pending']
+        ],
+        "external_reference" => (string)$appointmentId,
+        "notification_url" => $mpConfig['urls']['webhook'],
+        "auto_return" => "approved",
+        "statement_descriptor" => "VETE A UN CLICK"
+    ];
+    
+    // Crear la preferencia
+    $result = $client->create($preference_data);
+    
+    // Verificar que se creó correctamente
+    if (empty($result->init_point)) {
+        throw new Exception("No se pudo generar el link de pago de Mercado Pago");
     }
-
-    // ✅ CREAR PREFERENCIA DE MERCADO PAGO
-    $preference = new Preference();
-    
-    $item = new MercadoPago\Item();
-    $item->title = "Consulta Veterinaria Online";
-    $item->quantity = 1;
-    $item->unit_price = $mpConfig['precio_consulta'];
-    $item->currency_id = $mpConfig['moneda'];
-    
-    $preference->items = [$item];
-    
-    $preference->payer = [
-        "name" => $_POST['cliente_nombre'],
-        "email" => $_POST['cliente_email']
-    ];
-    
-    $preference->back_urls = [
-        "success" => $mpConfig['urls']['success'],
-        "failure" => $mpConfig['urls']['failure'],
-        "pending" => $mpConfig['urls']['pending']
-    ];
-    
-    $preference->external_reference = $appointmentId;
-    $preference->notification_url = $mpConfig['urls']['webhook'];
-    $preference->auto_return = "approved";
-    
-    $preference->save();
     
     $_SESSION['appointment_id'] = $appointmentId;
     $_SESSION['tipo_turno'] = $tipoBusqueda;
-    $_SESSION['preference_id'] = $preference->id;
+    $_SESSION['preference_id'] = $result->id;
 
-    // Redirigir a Mercado Pago
-    header("Location: " . $preference->init_point);
+    // Redirigir al checkout de Mercado Pago
+    header("Location: " . $result->init_point);
     exit;
 
 } catch (Exception $e) {
-    error_log("Error en pago: " . $e->getMessage());
-    die("<div style='text-align:center;padding:50px;font-family:Arial;'><h1>Error</h1><p>Hubo un problema con tu reserva.</p><a href='index.php'>Volver</a></div>");
+    error_log("Error en pago SDK 3.x: " . $e->getMessage());
+    error_log("Stack trace: " . $e->getTraceAsString());
+    die("<div style='text-align:center;padding:50px;font-family:Arial;'><h1>Error</h1><p>" . htmlspecialchars($e->getMessage()) . "</p><a href='index.php'>Volver</a></div>");
 }
-?>

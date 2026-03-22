@@ -7,17 +7,17 @@ require_once __DIR__ . '/../src/Controllers/EmailController.php';
 
 $mpConfig = require __DIR__ . '/../config/mercadopago.php';
 
-// Configurar SDK
-if ($mpConfig['modo_prueba']) {
-    MercadoPago\SDK::setAccessToken($mpConfig['sandbox']['access_token']);
-} else {
-    MercadoPago\SDK::setAccessToken($mpConfig['production']['access_token']);
-}
+// Configurar access token
+$accessToken = $mpConfig['modo_prueba'] 
+    ? $mpConfig['sandbox']['access_token'] 
+    : $mpConfig['production']['access_token'];
 
-// Logging para debugging (eliminar en producción)
+MercadoPagoConfig::setAccessToken($accessToken);
+
+// Logging para debugging
 $logFile = __DIR__ . '/webhook_log.txt';
 file_put_contents($logFile, 
-    date('Y-m-d H:i:s') . ' - IP: ' . $_SERVER['REMOTE_ADDR'] . PHP_EOL, 
+    date('Y-m-d H:i:s') . ' - IP: ' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown') . PHP_EOL, 
     FILE_APPEND
 );
 
@@ -37,7 +37,10 @@ if (!isset($payload['type']) || $payload['type'] !== 'payment') {
 $paymentId = $payload['data']['id'];
 
 try {
-    $payment = MercadoPago\Payment::find_by_id($paymentId);
+    // ✅ SDK 3.x: Usar PaymentClient para obtener el pago
+    use MercadoPago\Client\Payment\PaymentClient;
+    $paymentClient = new PaymentClient();
+    $payment = $paymentClient->get($paymentId);
     
     file_put_contents($logFile, 
         'Payment Status: ' . $payment->status . PHP_EOL, 
