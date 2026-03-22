@@ -10,13 +10,18 @@ require_once __DIR__ . '/../config/mercadopago.php';
 require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../src/Controllers/AppointmentController.php';
 
+// ✅ Imports CORRECTOS para SDK 3.8.0
+use MercadoPago\SDK;
+use MercadoPago\Preference;
+use MercadoPago\Item;
+
 $mpConfig = require __DIR__ . '/../config/mercadopago.php';
 
 // ✅ Configurar SDK según modo
 if ($mpConfig['modo_prueba']) {
-    MercadoPago\SDK::setAccessToken($mpConfig['sandbox']['access_token']);
+    SDK::setAccessToken($mpConfig['sandbox']['access_token']);
 } else {
-    MercadoPago\SDK::setAccessToken($mpConfig['production']['access_token']);
+    SDK::setAccessToken($mpConfig['production']['access_token']);
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -90,7 +95,7 @@ try {
     }
 
     // ✅ CREAR PREFERENCIA DE MERCADO PAGO
-    $preference = new MercadoPago\Preference();
+    $preference = new Preference();
     
     $item = new MercadoPago\Item();
     $item->title = "Consulta Veterinaria Online";
