@@ -24,9 +24,6 @@ $accessToken = $mpConfig['modo_prueba']
 
 MercadoPagoConfig::setAccessToken($accessToken);
 
-// Opcional: Configurar timeout
-MercadoPagoConfig::setTimeout(30000); // 30 segundos
-
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header("Location: index.php");
     exit;
