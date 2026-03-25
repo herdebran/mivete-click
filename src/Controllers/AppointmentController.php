@@ -243,7 +243,21 @@ class AppointmentController {
         return $stmt->fetchColumn();
     }
 
+    /*
+     * Metodo para registrar el pago de un appointment. Generalmente se llama desde le webhook cuando se registra
+     * un pago exitoso.
+     */
+    public function registerPayment($appointmentId, $mpPaymentId, $monto, $estado = 'approved') {
+        $query = "INSERT INTO payments (appointment_id, mp_payment_id, monto, estado, fecha_pago) 
+              VALUES (:appointment_id, :mp_payment_id, :monto, :estado, NOW())";
 
+        $stmt = $this->db->prepare($query);
+        $stmt->bindParam(":appointment_id", $appointmentId);
+        $stmt->bindParam(":mp_payment_id", $mpPaymentId);
+        $stmt->bindParam(":monto", $monto);
+        $stmt->bindParam(":estado", $estado);
 
+        return $stmt->execute();
+    }
 
 }

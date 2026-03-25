@@ -54,20 +54,28 @@ try {
         
         $appointmentId = $payment->external_reference;
         
-        // Confirmar pago
+        // 1. Confirmar pago (actualiza estado del turno)
         $controller->confirmPayment($appointmentId);
         
-        // Obtener datos del turno
+        // ✅ 2. INSERTAR EN TABLA PAYMENTS
+        $controller->registerPayment($appointmentId, $paymentId, $payment->transaction_amount ?? 0);
+        
+        file_put_contents($logFile, 
+            'PAYMENT INSERTED - ID: ' . $paymentId . ', Amount: ' . ($payment->transaction_amount ?? 0) . PHP_EOL, 
+            FILE_APPEND
+        );
+        
+        // 3. Obtener datos del turno
         $turno = $controller->getAppointmentById($appointmentId);
         
-        // Generar meeting link
+        // 4. Generar meeting link
         $meetingLink = "https://meet.jit.si/vetconnect-" . md5($appointmentId . time());
         $controller->appointment->updateMeetingLink($appointmentId, $meetingLink);
         
-        // Obtener adjuntos
+        // 5. Obtener adjuntos
         $adjuntos = $controller->getAttachments($appointmentId);
         
-        // Enviar emails
+        // 6. Enviar emails
         $emailController = new EmailController();
         $emailController->enviarConfirmacionTurno($turno, $meetingLink, $adjuntos);
         
