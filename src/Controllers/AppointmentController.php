@@ -248,16 +248,26 @@ class AppointmentController {
      * un pago exitoso.
      */
     public function registerPayment($appointmentId, $mpPaymentId, $monto, $estado = 'approved') {
-        $query = "INSERT INTO payments (appointment_id, mp_payment_id, monto, estado, fecha_pago) 
-              VALUES (:appointment_id, :mp_payment_id, :monto, :estado, NOW())";
+        try {
+            $query = "INSERT INTO payments (appointment_id, mp_payment_id, monto, estado, fecha_pago) 
+                  VALUES (:appointment_id, :mp_payment_id, :monto, :estado, NOW())";
 
-        $stmt = $this->db->prepare($query);
-        $stmt->bindParam(":appointment_id", $appointmentId);
-        $stmt->bindParam(":mp_payment_id", $mpPaymentId);
-        $stmt->bindParam(":monto", $monto);
-        $stmt->bindParam(":estado", $estado);
+            $stmt = $this->db->prepare($query);
+            $stmt->bindParam(":appointment_id", $appointmentId, PDO::PARAM_INT);
+            $stmt->bindParam(":mp_payment_id", $mpPaymentId, PDO::PARAM_STR);
+            $stmt->bindParam(":monto", $monto, PDO::PARAM_STR);
+            $stmt->bindParam(":estado", $estado, PDO::PARAM_STR);
 
-        return $stmt->execute();
+            $executed = $stmt->execute();
+
+            // Logging para debug
+            error_log("registerPayment: appointment_id=$appointmentId, mp_payment_id=$mpPaymentId, executed=" . ($executed ? 'true' : 'false'));
+
+            return $executed;
+        } catch (PDOException $e) {
+            error_log("ERROR registerPayment: " . $e->getMessage());
+            return false;
+        }
     }
 
 }
