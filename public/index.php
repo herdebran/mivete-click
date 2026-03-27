@@ -57,7 +57,8 @@
                 <i data-lucide="calendar-clock" class="w-5 h-5"></i>
                 Reservar turno ahora
             </a>
-            
+
+
             <p class="text-sm text-white/70 mt-4 flex items-center justify-center gap-4">
                 <span class="flex items-center gap-1"><i data-lucide="check-circle" class="w-4 h-4"></i> Sin esperas</span>
                 <span class="flex items-center gap-1"><i data-lucide="check-circle" class="w-4 h-4"></i> Desde $5.000</span>
@@ -100,6 +101,8 @@
         </div>
     </div>
 
+
+
     <!-- Footer -->
     <footer class="bg-gray-900 text-white py-12">
         <div class="max-w-6xl mx-auto px-4">
@@ -111,9 +114,10 @@
                     <span class="font-bold text-lg">Vete a un Click</span>
                 </div>
                 <p class="text-gray-400 text-sm">© 2026 Todos los derechos reservados.</p>
-                <a href="profesionales/" class="text-gray-400 hover:text-white text-sm transition">
-                    Acceso Profesionales
+                <a href="retomar_reserva.php" class="text-sm text-gray-500 hover:text-purple-600 transition">
+                    ¿Ya pagaste? Retomar reserva
                 </a>
+
             </div>
         </div>
     </footer>

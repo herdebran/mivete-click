@@ -243,12 +243,23 @@ class AppointmentController {
         return $stmt->fetchColumn();
     }
 
-    /*
-     * Metodo para registrar el pago de un appointment. Generalmente se llama desde le webhook cuando se registra
-     * un pago exitoso.
+    /**
+     * Registrar un pago en la tabla payments (con prevención de duplicados)
      */
     public function registerPayment($appointmentId, $mpPaymentId, $monto, $estado = 'approved') {
         try {
+            // ✅ Primero verificar si ya existe este pago
+            $checkQuery = "SELECT id FROM payments WHERE mp_payment_id = :mp_payment_id LIMIT 1";
+            $checkStmt = $this->db->prepare($checkQuery);
+            $checkStmt->bindParam(":mp_payment_id", $mpPaymentId, PDO::PARAM_STR);
+            $checkStmt->execute();
+
+            if ($checkStmt->fetch()) {
+                error_log("registerPayment: Payment $mpPaymentId ya registrado, saltando insert");
+                return true; // Ya existe, consideramos éxito
+            }
+
+            // ✅ Insertar nuevo pago
             $query = "INSERT INTO payments (appointment_id, mp_payment_id, monto, estado, fecha_pago) 
                   VALUES (:appointment_id, :mp_payment_id, :monto, :estado, NOW())";
 
@@ -259,15 +270,18 @@ class AppointmentController {
             $stmt->bindParam(":estado", $estado, PDO::PARAM_STR);
 
             $executed = $stmt->execute();
-
-            // Logging para debug
-            error_log("registerPayment: appointment_id=$appointmentId, mp_payment_id=$mpPaymentId, executed=" . ($executed ? 'true' : 'false'));
+            error_log("registerPayment: Insertado payment_id=$mpPaymentId para appointment=$appointmentId");
 
             return $executed;
+
         } catch (PDOException $e) {
+            // Si falla por UNIQUE constraint, probablemente fue race condition
+            if ($e->getCode() == '23000') {
+                error_log("registerPayment: Duplicate key, payment already exists");
+                return true;
+            }
             error_log("ERROR registerPayment: " . $e->getMessage());
             return false;
         }
     }
-
 }

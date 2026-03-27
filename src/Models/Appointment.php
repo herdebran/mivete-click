@@ -59,10 +59,17 @@ class Appointment {
         return $stmt->fetch();
     }
 
+    /**
+     * Devuelve los turnos disponibles (execptua los bloqueos y turnos dados)
+     * Nota de color: Solo va a devolver los turnos considerando datetime actual + 3 horas
+     * @param $professionalId
+     * @param $fecha
+     * @return array
+     */
     public function getAvailableSlots($professionalId, $fecha) {
         $diaSemana = date('w', strtotime($fecha));
 
-        // Obtener disponibilidad base
+        // Obtener disponibilidad base del veterinario
         $query = "SELECT hora_inicio, hora_fin FROM availability 
               WHERE professional_id = :profesional_id 
               AND dia_semana = :dia_semana 
@@ -87,13 +94,16 @@ class Appointment {
         $stmtBloqueos->execute();
         $bloqueos = $stmtBloqueos->fetchAll();
 
+        // ✅ Calcular hora mínima permitida (ahora + 3 horas)
+        $minTimestamp = strtotime('+3 hours');
+
         // Generar slots de 30 minutos
         $slots = [];
         $inicio = strtotime($disponibilidad['hora_inicio']);
         $fin = strtotime($disponibilidad['hora_fin']);
-        $duracion = 30 * 60; // 30 minutos en segundos
+        $duracion = 30 * 60;
 
-        // Obtener turnos ya reservados
+        // Obtener turnos ya reservados ese día
         $queryReservados = "SELECT hora_inicio FROM appointments 
                        WHERE professional_id = :profesional_id 
                        AND fecha = :fecha 
@@ -106,26 +116,30 @@ class Appointment {
 
         while ($inicio + $duracion <= $fin) {
             $horaSlot = date('H:i', $inicio);
-            $horaSlotFin = date('H:i', strtotime($horaSlot . ' +30 minutes'));
+            $slotTimestamp = strtotime("$fecha $horaSlot");
 
-            // ✅ Verificar si está reservado
+            // ✅ FILTRO 1: Saltar slots en el pasado o menos de 3 horas
+            if ($slotTimestamp < $minTimestamp) {
+                $inicio += $duracion;
+                continue;
+            }
+
+            // ✅ FILTRO 2: Saltar slots ya reservados
             if (in_array($horaSlot, $reservados)) {
                 $inicio += $duracion;
                 continue;
             }
 
-            // ✅ Verificar si está bloqueado (COMPARACIÓN CORREGIDA)
+            // ✅ FILTRO 3: Saltar slots bloqueados
             $bloqueado = false;
             $slotInicioMinutos = $this->timeToMinutes($horaSlot);
-            $slotFinMinutos = $this->timeToMinutes($horaSlotFin);
+            $slotFinMinutos = $this->timeToMinutes(date('H:i', $inicio + $duracion));
 
             foreach ($bloqueos as $bloqueo) {
                 if (!empty($bloqueo['hora_inicio']) && !empty($bloqueo['hora_fin'])) {
-                    // ✅ Convertir a minutos para comparar correctamente
                     $bloqueoInicioMinutos = $this->timeToMinutes($bloqueo['hora_inicio']);
                     $bloqueoFinMinutos = $this->timeToMinutes($bloqueo['hora_fin']);
 
-                    // ✅ Verificar superposición: el slot se superpone si comienza antes del fin del bloqueo Y termina después del inicio del bloqueo
                     if ($slotInicioMinutos < $bloqueoFinMinutos && $slotFinMinutos > $bloqueoInicioMinutos) {
                         $bloqueado = true;
                         break;
@@ -142,7 +156,6 @@ class Appointment {
 
         return $slots;
     }
-
     // ✅ Método auxiliar para convertir tiempo a minutos desde la medianoche
     private function timeToMinutes($time) {
         list($hours, $minutes) = explode(':', $time);
@@ -184,6 +197,9 @@ class Appointment {
 
         $slots = [];
 
+        // ✅ Calcular hora mínima permitida (ahora + 3 horas)
+        $minTimestamp = strtotime('+3 hours');
+
         for ($i = 0; $i < 15; $i++) {
             if (count($slots) >= $limit) break;
 
@@ -201,7 +217,7 @@ class Appointment {
 
             $fechaStr = $fecha->format('Y-m-d');
 
-            // ✅ Obtener bloqueos para ese día
+            // Obtener bloqueos para ese día
             $queryBloqueos = "SELECT hora_inicio, hora_fin FROM blocked_dates 
                           WHERE professional_id = :profesional_id 
                           AND fecha = :fecha";
@@ -226,18 +242,24 @@ class Appointment {
                 if (count($slots) >= $limit) break 2;
 
                 $horaSlot = date('H:i', $inicio);
-                $horaSlotFin = date('H:i', strtotime($horaSlot . ' +30 minutes'));
+                $slotTimestamp = strtotime("$fechaStr $horaSlot");
 
-                // Verificar reservados
+                // ✅ FILTRO 1: Saltar slots en el pasado o menos de 3 horas
+                if ($slotTimestamp < $minTimestamp) {
+                    $inicio += $duracion;
+                    continue;
+                }
+
+                // ✅ FILTRO 2: Saltar slots ya reservados
                 if (in_array($horaSlot, $reservados)) {
                     $inicio += $duracion;
                     continue;
                 }
 
-                // ✅ Verificar bloqueos con comparación corregida
+                // ✅ FILTRO 3: Saltar slots bloqueados
                 $bloqueado = false;
                 $slotInicioMinutos = $this->timeToMinutes($horaSlot);
-                $slotFinMinutos = $this->timeToMinutes($horaSlotFin);
+                $slotFinMinutos = $this->timeToMinutes(date('H:i', $inicio + $duracion));
 
                 foreach ($bloqueosDia as $bloqueo) {
                     if (!empty($bloqueo['hora_inicio']) && !empty($bloqueo['hora_fin'])) {
